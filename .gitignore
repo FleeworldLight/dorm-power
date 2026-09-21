@@ -17,6 +17,9 @@ data/last_state.json
 data/room.json
 data/run.log
 web/data/
+# monitor.py 的本地看板：由 `python monitor.py report` 生成，
+# 源码在 monitor.py 的 build_dashboard() 里，不是要维护的文件。
+dashboard.html
 
 # ── 浏览器 profile：几百 MB 的二进制缓存，且含登录态 ────────
 .edge-profile/
@@ -41,6 +44,9 @@ desktop.ini
 _verify/
 _*.js
 _*.html
+# 开发过程中的截图和页面快照，只用于当时核对，没有长期价值。
+# 放在 doc/ 里当配图要显式改文件名（preview- 前缀的一律忽略）。
+preview-*
 
 # 注意：docs/ 由 sync-docs.sh 从 dist/ 生成，虽然算「产物」，
 # 但 GitHub Pages 要直接读它，所以必须入库 —— 不要忽略它。

@@ -13,8 +13,8 @@
 ```
 订阅电费/
 ├── monitor.py                 本地 CLI（单文件，只用标准库 + 本机 Edge）
-├── config.json                本地 CLI 的配置
-├── data/                      本地数据：cookies / 历史 / 上次状态
+├── config.json                本地 CLI 的配置（本机状态，不入库）
+├── data/                      本地数据：cookies / 历史 / 上次状态（不入库）
 ├── doc/                       本目录（文档）
 ├── sync-docs.sh               dist/ -> docs/ 的同步脚本
 ├── dist/                      前端静态站（源文件，唯一真相）
