@@ -34,3 +34,6 @@ desktop.ini
 _verify/
 _*.js
 _*.html
+
+# 注意：docs/ 由 sync-docs.sh 从 dist/ 生成，虽然算「产物」，
+# 但 GitHub Pages 要直接读它，所以必须入库 —— 不要忽略它。
