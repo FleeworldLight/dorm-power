@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""HTTP 接口层与看板读模型。"""
+"""HTTP 接口层与看板读模型。
+
+本模块**只提供 JSON 接口**，不渲染页面也不服务静态资源 ——
+前端是独立部署的静态站（见仓库 `dist/`，可直接扔 GitHub Pages）。
+两边通过 CORS 通信，白名单见 `allowed_origin`。"""
 
 import json
 import re
@@ -12,61 +16,61 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from .conf import MAX_BODY, PROFILE_DIR, ROOT, load_cfg
+from .conf import MAX_BODY, PROFILE_DIR, load_cfg
 from .login import _login_hits, _sessions, _sessions_lock, diag, poll_login, start_login
 from .school import fetch_room_page, get_level_options, query_remain, session_is_real, site_cookies
 from .store import (_lock, clean_report, get_key, load_users, open_user,
                     purge_expired, rand_token, roll_point, save_users, upsert_user)
 
 
-# ---------------------------------------------------------------- 模板 / 静态资源
+# ---------------------------------------------------------------- CORS
 
-TEMPLATES_DIR = ROOT / "templates"
-STATIC_DIR = ROOT / "static"
-STATIC_MIME = {".css": "text/css; charset=utf-8",
-               ".js": "text/javascript; charset=utf-8",
-               ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon"}
+# 浏览器发预检时要看的请求头。改前端如果新增了自定义头，记得在这里补上。
+ALLOW_HEADERS = "Content-Type"
+ALLOW_METHODS = "GET, POST, DELETE, OPTIONS"
 
 
-def render_index(cfg):
-    html = (TEMPLATES_DIR / "index.html").read_text(encoding="utf-8")
-    return html.replace("__TITLE__", cfg["site_title"])
+def allowed_origin(cfg, origin):
+    """把请求的 Origin 映射成回给浏览器的 Access-Control-Allow-Origin。
+
+    这个服务现在是**纯 API**，前端可能部署在别处（例如 GitHub Pages），
+    所以跨域是正常状态而不是异常。但也不能无脑回 *：回显具体来源才允许
+    带凭据，也才好排查「谁在调我」。
+
+    cors_origins 支持三种写法：
+      "*"                     —— 谁都行（只在自己机器上调试时用）
+      "https://a.com"         —— 精确匹配
+      "https://*.github.io"   —— 通配子域（*. 只允许出现在最前面）
+    留空 = 只允许同源（浏览器不发 Origin 或 Origin 与 Host 一致时不拦）。
+    """
+    rules = cfg.get("cors_origins")
+    if isinstance(rules, str):
+        rules = [rules]
+    rules = [str(r).strip().rstrip("/") for r in (rules or []) if str(r).strip()]
+    if not rules:
+        return None
+    if "*" in rules:
+        return "*"
+    if not origin:
+        return None
+    o = origin.rstrip("/")
+    for r in rules:
+        if r == o:
+            return o
+        if r.startswith("https://*.") or r.startswith("http://*."):
+            scheme, _, tail = r.partition("*.")
+            # 必须落在 scheme:// 之后，避免 evilgithub.io 被 *.github.io 误放行
+            if o.startswith(scheme) and o[len(scheme):].endswith("." + tail):
+                return o
+    return None
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "dorm-power/2.0"
+    server_version = "dorm-power/3.0"
     protocol_version = "HTTP/1.1"
 
     def log_message(self, fmt, *args):
         sys.stderr.write("[%s] %s\n" % (self.log_date_time_string(), fmt % args))
-
-    def _send_static(self, name):
-        """只放行 static/ 下的白名单文件名，挡掉 ../ 之类的路径穿越。"""
-        if not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", name):
-            return self._send(404, b"not found", "text/plain; charset=utf-8")
-        p = STATIC_DIR / name
-        if not p.is_file():
-            return self._send(404, b"not found", "text/plain; charset=utf-8")
-        st = p.stat()
-        etag = '"%x-%x"' % (int(st.st_mtime), st.st_size)
-        if self.headers.get("If-None-Match") == etag:
-            self.send_response(304)
-            self.send_header("ETag", etag)
-            self.send_header("Cache-Control", "no-cache")
-            self.end_headers()
-            return
-        body = p.read_bytes()
-        self.send_response(200)
-        self.send_header("Content-Type", STATIC_MIME.get(p.suffix, "application/octet-stream"))
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-cache")
-        self.send_header("ETag", etag)
-        self.end_headers()
-        try:
-            self.wfile.write(body)
-        except Exception:
-            pass
-
 
     def _send(self, code, body, ctype="application/json; charset=utf-8", extra=None):
         if isinstance(body, str):
@@ -75,9 +79,15 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+        # 跨域放行：只回显白名单里的来源，不回 *（除非配置里明确写了 *）。
+        ok_origin = allowed_origin(load_cfg(), self.headers.get("Origin"))
+        if ok_origin:
+            self.send_header("Access-Control-Allow-Origin", ok_origin)
+            if ok_origin != "*":
+                self.send_header("Vary", "Origin")
+        self.send_header("Access-Control-Allow-Headers", ALLOW_HEADERS)
+        self.send_header("Access-Control-Allow-Methods", ALLOW_METHODS)
+        self.send_header("Access-Control-Max-Age", "600")
         for k, v in (extra or {}).items():
             self.send_header(k, v)
         self.end_headers()
@@ -112,9 +122,11 @@ class Handler(BaseHTTPRequestHandler):
         purge_expired(cfg)
 
         if path in ("/", "/index.html"):
-            return self._send(200, render_index(cfg), "text/html; charset=utf-8")
-        if path.startswith("/static/"):
-            return self._send_static(path[len("/static/"):])
+            # 这里不提供页面了 —— 前端是独立部署的静态站（见 dist/）。
+            # 回一段 JSON 说明，免得直接访问域名的人对着空白页面发懵。
+            return self._json({"code": 200, "msg": "dorm-power API",
+                               "data": {"frontend": "见仓库 dist/ 目录（可部署到 GitHub Pages）",
+                                        "health": "/healthz", "api": "/api/summary"}})
         if path == "/healthz":
             return self._json({"code": 200, "msg": "Health Checked", "data": "Pod alive"})
         if path == "/api/diag":

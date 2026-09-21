@@ -46,6 +46,10 @@ DEFAULT_CONFIG = {
     "max_users": 200,
     "max_login_sessions": 3,
     "admin_token": "",
+    # 跨域白名单。前端独立部署（如 GitHub Pages）时必须登记它的来源，
+    # 否则浏览器会拦掉响应。支持精确来源与 "https://*.github.io" 这类通配。
+    # 留空 = 只服务同源请求。
+    "cors_origins": [],
 }
 
 
