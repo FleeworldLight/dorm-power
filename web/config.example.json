@@ -1,0 +1,7 @@
+{
+  "_说明": "把本文件复制为 web/config.json。web/config.json 已被 git 忽略，因为里面有 admin_token。",
+  "admin_token": "请填入一串随机字符串",
+  "max_login_sessions": 4,
+  "login_rate_limit": 20,
+  "session_ttl_days": 30
+}

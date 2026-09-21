@@ -1,0 +1,36 @@
+# ── 凭据：绝不入库 ──────────────────────────────────────────
+# 真实登录态（内含支付宝 / 学校站点的 Cookie 值）
+data/cookies.json
+# 线上服务的 admin_token
+web/config.json
+
+# ── 运行期数据：属于「状态」不属于「代码」 ──────────────────
+data/history.csv
+data/last_state.json
+data/room.json
+data/run.log
+web/data/
+
+# ── 浏览器 profile：几百 MB 的二进制缓存，且含登录态 ────────
+.edge-profile/
+_sp/
+**/profiles/
+
+# ── Python ─────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ── 编辑器 / 系统 ──────────────────────────────────────────
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+*.swp
+
+# ── 临时验证产物 ───────────────────────────────────────────
+_verify/
+_*.js
+_*.html

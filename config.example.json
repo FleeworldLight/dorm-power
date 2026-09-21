@@ -1,0 +1,14 @@
+{
+  "_说明": "把本文件复制为 config.json 后按需修改。config.json 会被 git 跟踪，所以这里不要放任何密码 / token。",
+  "base_url": "http://nfuedu.zftcloud.com/electricity_system",
+  "edge_path": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "profile_dir": ".edge-profile",
+  "unit_price": 0.6259,
+  "low_threshold": 20.0,
+  "browser_timeout_s": 90,
+  "login_timeout_s": 420,
+  "history_keep": 2000,
+  "report_url": "",
+  "display_name": "",
+  "client_id": ""
+}
