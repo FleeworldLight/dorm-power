@@ -4,6 +4,13 @@ data/cookies.json
 # 线上服务的 admin_token
 web/config.json
 
+# ── 本机专属：不入库 ────────────────────────────────────────
+# 本地 CLI 的配置。它是「这台机器」的状态而不是代码：
+# client_id 是首次运行时生成的随机机器标识，换个环境本来就该重新生成
+# （monitor.py 发现为空会自动补一个）。
+# 新环境从 config.example.json 复制一份即可。
+config.json
+
 # ── 运行期数据：属于「状态」不属于「代码」 ──────────────────
 data/history.csv
 data/last_state.json

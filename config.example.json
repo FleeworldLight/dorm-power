@@ -1,5 +1,5 @@
 {
-  "_说明": "把本文件复制为 config.json 后按需修改。config.json 会被 git 跟踪，所以这里不要放任何密码 / token。",
+  "_说明": "复制本文件为 config.json 后按需修改。config.json 是本机专属配置，已被 .gitignore 排除（里面的 client_id 是这台机器的随机标识，换环境会重新生成）。",
   "base_url": "http://nfuedu.zftcloud.com/electricity_system",
   "edge_path": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
   "profile_dir": ".edge-profile",
@@ -9,6 +9,5 @@
   "login_timeout_s": 420,
   "history_keep": 2000,
   "report_url": "",
-  "display_name": "",
-  "client_id": ""
+  "display_name": ""
 }
