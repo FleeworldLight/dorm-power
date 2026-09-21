@@ -6,7 +6,7 @@ const FALLBACK_TITLE=(typeof window!=='undefined' && window.FALLBACK_TITLE)||'�
 const fmt=(n,d=2)=>(n===null||n===undefined||isNaN(n))?'--':Number(n).toLocaleString('zh-CN',{minimumFractionDigits:d,maximumFractionDigits:d});
 const q=(s)=>document.querySelector(s);
 let CFG={}, UTOKEN=localStorage.getItem('dorm_utoken')||'', SID='', LEVELS=[], CHOSEN={}, POLL=null, LAST={rooms:[]};
-let CHANGING=false, PREFILLED=false, AUTO_DONE=false;
+let SCANNING=false, PREFILLED=false, AUTO_DONE=false;
 
 async function api(path,opt={}){
   let r=null;
@@ -43,8 +43,6 @@ async function boot(){
   }
   q('#btnStart').onclick=()=>startLogin(false);
   q('#btnCommit').onclick=commitRoom;
-  q('#btnRefresh').onclick=refreshMine;
-  q('#btnChangeRoom').onclick=()=>startLogin(true);
   q('#btnCancelChange').onclick=cancelChange;
   q('#btnForget').onclick=forgetMine;
   syncPanelMode();
@@ -53,13 +51,15 @@ async function boot(){
 
 // 面板文案跟着「首次添加」还是「换宿舍」变。已经绑过宿舍的人只会是后者。
 function syncPanelMode(){
-  const replace = CHANGING || !!LAST.bound;
+  const replace = !!LAST.bound;
   q('#panelNewTitle').textContent = replace ? '换个宿舍' : '添加宿舍';
   q('#panelNewNote').textContent = replace
     ? '扫码后重新选一次房间即可替换。姓名学号沿用原来的，不用重填。'
     : '扫码后选房间，把这个房间加进看板。';
   q('#btnStart').textContent = replace ? '开始扫码换宿舍' : '开始扫码';
-  q('#btnCancelChange').style.display = CHANGING ? 'inline-block' : 'none';
+  // 「取消」只在扫码进行中才出现。以前靠 CHANGING 控制，
+  // 但那个标志只有「换个宿舍」按钮会置位，按钮删掉后就永远为 false 了。
+  q('#btnCancelChange').style.display = SCANNING ? 'inline-block' : 'none';
 }
 
 function renderBoard(d){
@@ -235,23 +235,28 @@ document.addEventListener('visibilitychange',()=>{
   if(SID && q('#loginBox').style.display==='block' && q('#pickBox').style.display!=='block') startPolling();
 });
 
-async function startLogin(changing){
-  if(changing===true) CHANGING=true;
+async function startLogin(){
   PREFILLED=false;
+  SCANNING=true;
   syncPanelMode();
   q('#btnStart').disabled=true; q('#startHint').textContent='正在启动服务器浏览器…（首次约 10-30 秒）';
   q('#loginBox').style.display='block'; q('#pickBox').style.display='none';
   q('#qrWarn').style.display='none'; q('#qrHint').textContent='正在生成二维码…';
   q('#commitHint').textContent='';
   const d=await api('/api/session/start',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
-  if(!d.ok){ q('#startHint').textContent='失败：'+(d.error||'未知'); q('#btnStart').disabled=false; return; }
+  if(!d.ok){
+    q('#startHint').textContent='失败：'+(d.error||'未知');
+    q('#btnStart').disabled=false;
+    SCANNING=false; syncPanelMode();      // 起不来就别挂着「取消」
+    return;
+  }
   SID=d.sid; QRSEQ=-1; q('#startHint').textContent='';
   applyQr(d);
   startPolling();
 }
 
 function cancelChange(){
-  CHANGING=false; SID=''; stopPolling();
+  SCANNING=false; SID=''; stopPolling();
   q('#loginBox').style.display='none'; q('#pickBox').style.display='none';
   q('#startHint').textContent=''; q('#qrWarn').style.display='none';
   q('#btnStart').disabled=false;
@@ -296,7 +301,7 @@ async function pollState(){
   if(d.state==='logged_in'){
     stopPolling();
     q('#loginBox').style.display='none'; q('#pickBox').style.display='block';
-    q('#pickNote').textContent = CHANGING
+    q('#pickNote').textContent = LAST.bound
       ? '已登录。选新的房间（姓名学号已帮你填好）：'
       : '已登录。请填写姓名学号并选择房间：';
     prefillFromMine();
@@ -365,17 +370,8 @@ async function submitCommit(body){
   q('#pickBox').style.display='none'; q('#loginBox').style.display='none';
   q('#btnStart').disabled=false; q('#startHint').textContent='';
   SID=''; stopPolling();
-  CHANGING=false; syncPanelMode();
+  SCANNING=false; syncPanelMode();
   await boot();
-}
-
-async function refreshMine(){
-  const h=q('#mineHint');
-  h.textContent='正在查询…';
-  const d=await api('/api/refresh',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({utoken:UTOKEN})});
-  h.textContent = d.ok ? '已更新' : (d.throttled ? '刚刚刷过' : ('失败：'+(d.error||'未知')));
-  if(d.ok) await boot();
 }
 
 async function forgetMine(){
